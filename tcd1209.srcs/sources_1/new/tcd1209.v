@@ -44,11 +44,11 @@ module tcd1209(
 	input [11:0] ad_data,
 	output PULSE,
 
-	input rdclock, 
-	input [12:0] rdaddress,	
+	input clka, 
+	input [11:0] addrb,	
    output INT0,
    input re_sample,
-	output [15:0] q,
+	output [15:0] doutb,
 	input [2:0] yuzhi
 );
 wire en;
@@ -57,9 +57,9 @@ wire led_con;
 
 assign PULSE = led_con;
 
-wire wrclock; 
-wire wren;
-wire [12:0]wraddress;
+wire clkb; 
+wire wea;
+wire [11:0]addra;
 wire [15:0] fifo_data;
 tcd1209_driver TCD1209_Driver_u(
 	.clk(clk),		
@@ -100,22 +100,22 @@ ccd_stream CCD_Stream_u(
 	.ad_data(ad_data),
 	.INT0(INT0),
 	.re_sample(re_sample),
-	.wrclock(wrclock),
-	.wren(wren),
-	.wraddress(wraddress),
+	.clka(clka),
+	.wea(wea),
+	.addra(addra),
 	.sh(sh),
 	.fifo_data(fifo_data),
 	.yuzhi(yuzhi)
 );
 ad_ram U1  
 (
-	.data(fifo_data),  
-	.rdaddress(rdaddress),//
-	.rdclock(rdclock),
-	.wraddress(wraddress), //
-	.wrclock(wrclock),//
-	.wren(wren),//   
-	.q(q)   
+	.dina(fifo_data),  
+	.addrb(addrb),//
+	.clkb(clkb),
+	.addra(addra), //
+	.clka(clka),//
+	.wea(wea),//   
+	.doutb(doutb)   
 );
 endmodule
 

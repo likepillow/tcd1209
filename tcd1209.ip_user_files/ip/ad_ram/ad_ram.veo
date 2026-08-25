@@ -56,7 +56,7 @@
 //----------- Begin Cut here for INSTANTIATION Template ---// INST_TAG
 ad_ram your_instance_name (
   .clka(clka),    // input wire clka
-  .wea(wea),      // input wire [1 : 0] wea
+  .wea(wea),      // input wire [0 : 0] wea
   .addra(addra),  // input wire [11 : 0] addra
   .dina(dina),    // input wire [15 : 0] dina
   .clkb(clkb),    // input wire clkb

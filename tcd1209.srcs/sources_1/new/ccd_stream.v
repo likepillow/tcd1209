@@ -32,9 +32,9 @@ input [11:0] ad_data,
 
 output INT0,
 input re_sample,
-output wrclock,
-output wren,
-output [12:0] wraddress,
+output clka,
+output wea,
+output [12:0] addra,
 input sh,
 output [15:0] fifo_data,
 input [2:0] yuzhi
@@ -57,10 +57,10 @@ parameter
 ready=1'b0,
 sampling=1'b1;
 assign INT0=INT0_r;
-assign wraddress=wraddress_r;
+assign addra=wraddress_r;
 
-assign wren=wren_r;
-assign wrclock=rec_en;
+assign wea=wren_r;
+assign clka=rec_en;
 
 always@(posedge sh or  posedge rec_en)//negedge
 	if(sh)
