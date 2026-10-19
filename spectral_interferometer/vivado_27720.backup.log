@@ -1,0 +1,48 @@
+#-----------------------------------------------------------
+# Vivado v2018.3 (64-bit)
+# SW Build 2405991 on Thu Dec  6 23:38:27 MST 2018
+# IP Build 2404404 on Fri Dec  7 01:43:56 MST 2018
+# Start of session at: Thu Sep 24 19:12:11 2026
+# Process ID: 27720
+# Current directory: V:/
+# Command line: vivado.exe -mode batch -source scripts\boot_control_from_flash.tcl
+# Log file: V:/vivado.log
+# Journal file: V:/vivado.jou
+#-----------------------------------------------------------
+CRITICAL WARNING: [Common 17-741] No write access right to the local Tcl store at 'C'. XilinxTclStore is reverted to the installation area. If you want to use local Tcl Store, please change the access right and relaunch Vivado.
+source {scripts\boot_control_from_flash.tcl}
+# if {[llength $argv] != 0} {error "No arguments expected"}
+# open_hw
+# connect_hw_server -url localhost:3121
+INFO: [Labtools 27-2285] Connecting to hw_server url TCP:localhost:3121
+# set targets [get_hw_targets -quiet]
+# if {[llength $targets] != 1} {error "Expected one JTAG target"}
+# current_hw_target [lindex $targets 0]
+# open_hw_target
+INFO: [Labtoolstcl 44-466] Opening hw_target localhost:3121/xilinx_tcf/Digilent/B17677AFABCD
+# set devices [get_hw_devices -quiet]
+# if {[llength $devices] != 1} {error "Expected one FPGA"}
+# set dev [lindex $devices 0]
+# current_hw_device $dev
+# if {[get_property PART $dev] ne "xc7a200t"} {error "Wrong FPGA"}
+# boot_hw_device $dev
+INFO: [Labtoolstcl 44-664] Will wait up to 180 seconds for booting to complete.
+INFO: [Labtools 27-32] Done pin status: HIGH
+# after 1500
+# refresh_hw_device $dev
+INFO: [Labtools 27-1434] Device xc7a200t (JTAG device index = 0) is programmed with a design that has no supported debug core(s) in it.
+# if {[get_property REGISTER.USR_ACCESS $dev] ne "26092402"} {error "Control image did not boot from Flash"}
+# puts "CONTROL_FLASH_BOOT_PASS: USR_ACCESS=26092402"
+CONTROL_FLASH_BOOT_PASS: USR_ACCESS=26092402
+# close_hw_target
+INFO: [Labtoolstcl 44-464] Closing hw_target localhost:3121/xilinx_tcf/Digilent/B17677AFABCD
+# disconnect_hw_server
+# close_hw
+****** Webtalk v2018.3 (64-bit)
+  **** SW Build 2405991 on Thu Dec  6 23:38:27 MST 2018
+  **** IP Build 2404404 on Fri Dec  7 01:43:56 MST 2018
+    ** Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
+
+source V:/.Xil/Vivado-27720-DESKTOP-CJQTTKC/webtalk/labtool_webtalk.tcl -notrace
+INFO: [Common 17-206] Exiting Webtalk at Thu Sep 24 19:12:21 2026...
+INFO: [Common 17-206] Exiting Vivado at Thu Sep 24 19:12:21 2026...

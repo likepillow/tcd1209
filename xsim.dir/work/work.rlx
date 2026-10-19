@@ -1,0 +1,12 @@
+0.6
+2018.3
+Dec  7 2018
+00:33:28
+C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/spectral_interferometer/rtl/fx2_slave_fifo.v,1790082332,verilog,,C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/spectral_interferometer/rtl/usb_stream_bridge.v,,fx2_slave_fifo,,,,,,,,
+C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/spectral_interferometer/rtl/fx2_transport.v,1790083333,verilog,,C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/spectral_interferometer/rtl/fx2_slave_fifo.v,,fx2_transport,,,,,,,,
+C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/spectral_interferometer/rtl/instrument_board_top.v,1790097128,systemVerilog,,,,instrument_board_top,,,,,,,,
+C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/spectral_interferometer/rtl/instrument_core.v,1790083525,systemVerilog,,,,instrument_core,,,,,,,,
+C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/spectral_interferometer/rtl/instrument_frontend_usb.v,1790083728,systemVerilog,,,,instrument_frontend_usb,,,,,,,,
+C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/spectral_interferometer/rtl/usb_async_fifo.v,1789883714,verilog,,,,usb_async_fifo,,,,,,,,
+C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/spectral_interferometer/rtl/usb_stream_bridge.v,1789884172,verilog,,C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/spectral_interferometer/rtl/usb_word_stream.v,,usb_rx_bridge;usb_tx_bridge,,,,,,,,
+C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/spectral_interferometer/rtl/usb_word_stream.v,1789883168,verilog,,C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/spectral_interferometer/rtl/usb_async_fifo.v,,usb_byte_to_word;usb_word_to_byte,,,,,,,,

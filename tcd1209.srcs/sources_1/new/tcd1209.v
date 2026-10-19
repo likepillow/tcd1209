@@ -107,7 +107,17 @@ ccd_stream CCD_Stream_u(
 	.fifo_data(fifo_data),
 	.yuzhi(yuzhi)
 );
-ad_ram U1  
+ping_ram Ping_RAM  
+(
+	.dina(fifo_data),  
+	.addrb(addrb),//
+	.clkb(clkb),
+	.addra(addra), //
+	.clka(clka),//
+	.wea(wea),//   
+	.doutb(doutb)   
+);
+pong_ram Pong_RAM  
 (
 	.dina(fifo_data),  
 	.addrb(addrb),//

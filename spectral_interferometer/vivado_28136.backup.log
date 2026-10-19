@@ -1,0 +1,51 @@
+#-----------------------------------------------------------
+# Vivado v2018.3 (64-bit)
+# SW Build 2405991 on Thu Dec  6 23:38:27 MST 2018
+# IP Build 2404404 on Fri Dec  7 01:43:56 MST 2018
+# Start of session at: Thu Sep 24 19:07:58 2026
+# Process ID: 28136
+# Current directory: V:/
+# Command line: vivado.exe -mode batch -source scripts\program_runtime_volatile.tcl -tclargs V:\ control
+# Log file: V:/vivado.log
+# Journal file: V:/vivado.jou
+#-----------------------------------------------------------
+CRITICAL WARNING: [Common 17-741] No write access right to the local Tcl store at 'C'. XilinxTclStore is reverted to the installation area. If you want to use local Tcl Store, please change the access right and relaunch Vivado.
+source {scripts\program_runtime_volatile.tcl}
+# if {[llength $argv] < 1 || [llength $argv] > 2} {error "Pass project root and optional variant"}
+# set root [lindex $argv 0]
+# set variant [expr {[llength $argv] == 2 ? [lindex $argv 1] : "runtime"}]
+# if {$variant ni {runtime control}} {error "Unsupported variant"}
+# set marker [expr {$variant eq "control" ? "26092402" : "26092401"}]
+# open_hw
+# connect_hw_server -url localhost:3121
+INFO: [Labtools 27-2285] Connecting to hw_server url TCP:localhost:3121
+# set targets [get_hw_targets -quiet]
+# if {[llength $targets] != 1} {error "Expected one JTAG target, got [llength $targets]"}
+# current_hw_target [lindex $targets 0]
+# open_hw_target
+INFO: [Labtoolstcl 44-466] Opening hw_target localhost:3121/xilinx_tcf/Digilent/B17677AFABCD
+# set devices [get_hw_devices -quiet]
+# if {[llength $devices] != 1} {error "Expected one FPGA, got [llength $devices]"}
+# set dev [lindex $devices 0]
+# if {[get_property PART $dev] ne "xc7a200t"} {error "Wrong FPGA"}
+# set_property PROBES.FILE {} $dev
+# set_property PROGRAM.FILE [file join $root build ${variant}_deploy instrument_${variant}.bit] $dev
+# program_hw_devices $dev
+INFO: [Labtools 27-3164] End of startup status: HIGH
+# refresh_hw_device $dev
+INFO: [Labtools 27-1434] Device xc7a200t (JTAG device index = 0) is programmed with a design that has no supported debug core(s) in it.
+# if {[get_property REGISTER.USR_ACCESS $dev] ne $marker} {error "Wrong runtime version"}
+# puts "[string toupper $variant]_VOLATILE_PROGRAM_PASS: power-up stopped; Flash unchanged"
+CONTROL_VOLATILE_PROGRAM_PASS: power-up stopped; Flash unchanged
+# close_hw_target
+INFO: [Labtoolstcl 44-464] Closing hw_target localhost:3121/xilinx_tcf/Digilent/B17677AFABCD
+# disconnect_hw_server
+# close_hw
+****** Webtalk v2018.3 (64-bit)
+  **** SW Build 2405991 on Thu Dec  6 23:38:27 MST 2018
+  **** IP Build 2404404 on Fri Dec  7 01:43:56 MST 2018
+    ** Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
+
+source V:/.Xil/Vivado-28136-DESKTOP-CJQTTKC/webtalk/labtool_webtalk.tcl -notrace
+INFO: [Common 17-206] Exiting Webtalk at Thu Sep 24 19:08:04 2026...
+INFO: [Common 17-206] Exiting Vivado at Thu Sep 24 19:08:04 2026...

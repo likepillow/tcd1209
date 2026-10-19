@@ -1,7 +1,7 @@
 // Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 // --------------------------------------------------------------------------------
 // Tool Version: Vivado v.2018.3 (win64) Build 2405991 Thu Dec  6 23:38:27 MST 2018
-// Date        : Sun Aug 23 21:27:03 2026
+// Date        : Tue Sep  1 17:05:04 2026
 // Host        : DESKTOP-CJQTTKC running 64-bit major release  (build 9200)
 // Command     : write_verilog -force -mode synth_stub
 //               C:/Users/JITIANRUI/source/repos/likepillow/tcd1209/tcd1209.srcs/sources_1/ip/ad_ram/ad_ram_stub.v
@@ -15,12 +15,12 @@
 // Please paste the declaration into a Verilog source file or add the file as an additional source.
 (* x_core_info = "blk_mem_gen_v8_4_2,Vivado 2018.3" *)
 module ad_ram(clka, wea, addra, dina, clkb, addrb, doutb)
-/* synthesis syn_black_box black_box_pad_pin="clka,wea[0:0],addra[11:0],dina[15:0],clkb,addrb[11:0],doutb[15:0]" */;
+/* synthesis syn_black_box black_box_pad_pin="clka,wea[0:0],addra[10:0],dina[15:0],clkb,addrb[10:0],doutb[15:0]" */;
   input clka;
   input [0:0]wea;
-  input [11:0]addra;
+  input [10:0]addra;
   input [15:0]dina;
   input clkb;
-  input [11:0]addrb;
+  input [10:0]addrb;
   output [15:0]doutb;
 endmodule

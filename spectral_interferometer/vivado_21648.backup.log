@@ -1,0 +1,114 @@
+#-----------------------------------------------------------
+# Vivado v2018.3 (64-bit)
+# SW Build 2405991 on Thu Dec  6 23:38:27 MST 2018
+# IP Build 2404404 on Fri Dec  7 01:43:56 MST 2018
+# Start of session at: Thu Sep 24 19:07:43 2026
+# Process ID: 21648
+# Current directory: V:/
+# Command line: vivado.exe -mode batch -source scripts\inspect_hardware.tcl
+# Log file: V:/vivado.log
+# Journal file: V:/vivado.jou
+#-----------------------------------------------------------
+CRITICAL WARNING: [Common 17-741] No write access right to the local Tcl store at 'C'. XilinxTclStore is reverted to the installation area. If you want to use local Tcl Store, please change the access right and relaunch Vivado.
+source {scripts\inspect_hardware.tcl}
+# open_hw
+# connect_hw_server -url localhost:3121
+INFO: [Labtools 27-2285] Connecting to hw_server url TCP:localhost:3121
+INFO: [Labtools 27-2222] Launching hw_server...
+INFO: [Labtools 27-2221] Launch Output:
+
+****** Xilinx hw_server v2018.3
+  **** Build date : Dec  7 2018-00:40:27
+    ** Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
+
+
+# set targets [get_hw_targets -quiet]
+# if {![llength $targets]} {
+#     puts "HARDWARE_NOT_FOUND: no JTAG target; check board power, download USB and existing cable driver"
+# } else {
+#     foreach target $targets {
+#         current_hw_target $target
+#         if {[catch {open_hw_target} problem]} {
+#             puts "TARGET_OPEN_FAILED: ${target}: $problem"
+#             continue
+#         }
+#         foreach device [get_hw_devices -quiet] {
+#             puts "HARDWARE_DEVICE: $device, PART=[get_property PART $device]"
+#             if {[catch {refresh_hw_device $device} problem]} {
+#                 puts "DEVICE_REFRESH_FAILED: $problem"
+#                 continue
+#             }
+#             foreach property [list_property $device] {
+#                 if {[string match {REGISTER.CONFIG_STATUS*} $property] || [string match {REGISTER.BOOT_STATUS*} $property]} {
+#                     puts "DEVICE_STATUS: $property=[get_property $property $device]"
+#                 }
+#             }
+#             set ilas [get_hw_ilas -quiet -of_objects $device]
+#             set vios [get_hw_vios -quiet -of_objects $device]
+#             puts "DEBUG_CORES: ILA=[llength $ilas], VIO=[llength $vios]"
+#         }
+#         close_hw_target
+#     }
+# }
+INFO: [Labtoolstcl 44-466] Opening hw_target localhost:3121/xilinx_tcf/Digilent/B17677AFABCD
+HARDWARE_DEVICE: xc7a200t_0, PART=xc7a200t
+INFO: [Labtools 27-1434] Device xc7a200t (JTAG device index = 0) is programmed with a design that has no supported debug core(s) in it.
+DEVICE_STATUS: REGISTER.BOOT_STATUS=00000000000000000000000000000001
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT00_0_STATUS_VALID=1
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT01_0_FALLBACK=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT02_0_INTERNAL_PROG=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT03_0_WATCHDOG_TIMEOUT_ERROR=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT04_0_ID_ERROR=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT05_0_CRC_ERROR=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT06_0_WRAP_ERROR=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT07_0_SECURITY_ERROR=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT08_1_STATUS_VALID=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT09_1_FALLBACK=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT10_1_INTERNAL_PROG=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT11_1_WATCHDOG_TIMEOUT_ERROR=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT12_1_ID_ERROR=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT13_1_CRC_ERROR=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT14_1_WRAP_ERROR=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT15_1_SECURITY_ERROR=0
+DEVICE_STATUS: REGISTER.BOOT_STATUS.BIT16_RESERVED=0000000000000000
+DEVICE_STATUS: REGISTER.CONFIG_STATUS=01010000000100000111100111111100
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT00_CRC_ERROR=0
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT01_DECRYPTOR_ENABLE=0
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT02_PLL_LOCK_STATUS=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT03_DCI_MATCH_STATUS=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT04_END_OF_STARTUP_(EOS)_STATUS=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT05_GTS_CFG_B_STATUS=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT06_GWE_STATUS=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT07_GHIGH_STATUS=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT08_MODE_PIN_M[0]=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT09_MODE_PIN_M[1]=0
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT10_MODE_PIN_M[2]=0
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT11_INIT_B_INTERNAL_SIGNAL_STATUS=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT12_INIT_B_PIN=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT13_DONE_INTERNAL_SIGNAL_STATUS=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT14_DONE_PIN=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT15_IDCODE_ERROR=0
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT16_SECURITY_ERROR=0
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT17_SYSTEM_MONITOR_OVER-TEMP_ALARM_STATUS=0
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT18_CFG_STARTUP_STATE_MACHINE_PHASE=100
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT21_RESERVED=0000
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT25_CFG_BUS_WIDTH_DETECTION=00
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT27_HMAC_ERROR=0
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT28_PUDC_B_PIN=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT29_BAD_PACKET_ERROR=0
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT30_CFGBVS_PIN=1
+DEVICE_STATUS: REGISTER.CONFIG_STATUS.BIT31_RESERVED=0
+DEBUG_CORES: ILA=0, VIO=0
+INFO: [Labtoolstcl 44-464] Closing hw_target localhost:3121/xilinx_tcf/Digilent/B17677AFABCD
+# disconnect_hw_server
+# close_hw
+****** Webtalk v2018.3 (64-bit)
+  **** SW Build 2405991 on Thu Dec  6 23:38:27 MST 2018
+  **** IP Build 2404404 on Fri Dec  7 01:43:56 MST 2018
+    ** Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
+
+source V:/.Xil/Vivado-21648-DESKTOP-CJQTTKC/webtalk/labtool_webtalk.tcl -notrace
+INFO: [Common 17-206] Exiting Webtalk at Thu Sep 24 19:07:50 2026...
+# puts "READ_ONLY_DISCOVERY_FINISHED: no programming operation performed"
+READ_ONLY_DISCOVERY_FINISHED: no programming operation performed
+INFO: [Common 17-206] Exiting Vivado at Thu Sep 24 19:07:50 2026...
