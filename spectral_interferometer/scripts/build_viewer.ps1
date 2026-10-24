@@ -1,12 +1,13 @@
 param(
     [string]$Python = 'python',
-    [string]$PyInstallerPath = ''
+    [string]$PyInstallerPath = '',
+    [string]$OutputName = 'viewer_dist'
 )
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $hostRoot = Join-Path $projectRoot 'host'
-$distRoot = Join-Path $projectRoot 'build\viewer_dist'
+$distRoot = Join-Path $projectRoot "build\$OutputName"
 $workRoot = Join-Path $projectRoot 'build\viewer_build'
 $specRoot = Join-Path $projectRoot 'build'
 
@@ -28,6 +29,7 @@ try {
         --windowed `
         --name viewer `
         --paths $hostRoot `
+        --collect-all h5py `
         --distpath $distRoot `
         --workpath $workRoot `
         --specpath $specRoot `
@@ -44,6 +46,11 @@ try {
 $exe = Join-Path $distRoot 'viewer.exe'
 if (!(Test-Path -LiteralPath $exe)) {
     throw "Expected executable was not created: $exe"
+}
+$dllSource = Join-Path $projectRoot 'build\viewer_dist\CyUSB.dll'
+$dllDestination = Join-Path $distRoot 'CyUSB.dll'
+if ((Test-Path -LiteralPath $dllSource) -and !(Test-Path -LiteralPath $dllDestination)) {
+    Copy-Item -LiteralPath $dllSource -Destination $dllDestination
 }
 $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $exe).Hash
 Write-Host "VIEWER_BUILD_PASS: $exe"

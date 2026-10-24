@@ -8,10 +8,11 @@ module ccd_afe_timing #(
     parameter integer SH_PIXELS=8,
     parameter integer POST_PIXELS=3,
     parameter integer TAIL_PIXELS=12,
-    parameter integer DYNAMIC_PERIOD=0
+    parameter integer DYNAMIC_PERIOD=0,
+    parameter integer FAST_PROFILE=0
 )(
     input wire clk,input wire rst_n,input wire run,
-    input wire [12:0] period_pixels,
+    input wire [63:0] period_pixels,
     output reg ccd_phi1,output reg ccd_phi2,output reg ccd_sh,
     output reg ccd_rs,output reg ccd_cp,
     output reg ad_shp,output reg ad_shd,output reg ad_dataclk,
@@ -24,13 +25,18 @@ module ccd_afe_timing #(
     localparam STOP=0,PRE=1,SHIFT=2,POST=3,READOUT=4,TAIL=5;
     reg [2:0] state;
     reg [4:0] phase;
-    reg [31:0] pixel_count,frame_id;
+    reg [63:0] pixel_count;
+    reg [31:0] frame_id;
     reg [63:0] ticks;
-    reg [12:0] active_tail_pixels;
+    reg [63:0] active_tail_pixels;
+    localparam integer LAST_PHASE=FAST_PROFILE ? 7 : 19;
+    localparam integer PRE_COUNT=FAST_PROFILE ? 8 : PRE_PIXELS;
+    localparam integer SH_COUNT=FAST_PROFILE ? 20 : SH_PIXELS;
+    localparam integer POST_COUNT=FAST_PROFILE ? 8 : POST_PIXELS;
     wire reading = (state==READOUT);
     // The source tag is sampled on exactly the edge that registers DATACLK
     // high. Do not register this CE again before adc_pixel_align.
-    assign launch_ce = rst_n && phase==19;
+    assign launch_ce = rst_n && phase==LAST_PHASE;
     assign tag_valid = reading && pixel_count>=32 && pixel_count<2080;
     assign tag_index = pixel_count-32;
     assign tag_frame_id = frame_id;
@@ -51,15 +57,15 @@ module ccd_afe_timing #(
             frame_start<=0;
             // All external timing outputs are registers, not decoded counter
             // pins. No generated signal is used as an internal logic clock.
-            ccd_phi2<=reading && pixel_count!=0 && phase<12;
-            ccd_phi1<=!(reading && pixel_count!=0 && phase<12);
+            ccd_phi2<=reading && pixel_count!=0 && phase<(FAST_PROFILE ? 4 : 12);
+            ccd_phi1<=!(reading && pixel_count!=0 && phase<(FAST_PROFILE ? 4 : 12));
             ccd_sh<=state==SHIFT;
-            ccd_rs<=reading && phase>=2 && phase<5;
-            ccd_cp<=reading && phase>=7 && phase<10;
-            ad_shp<=!(phase>=8 && phase<11);
-            ad_shd<=!(phase>=16 && phase<18);
-            if(phase==19) ad_dataclk<=1;
-            else if(phase==9) ad_dataclk<=0;
+            ccd_rs<=reading && (FAST_PROFILE ? phase==0 : (phase>=2 && phase<5));
+            ccd_cp<=reading && (FAST_PROFILE ? phase==2 : (phase>=7 && phase<10));
+            ad_shp<=!(FAST_PROFILE ? phase==3 : (phase>=8 && phase<11));
+            ad_shd<=!(FAST_PROFILE ? phase==5 : (phase>=16 && phase<18));
+            if(phase==LAST_PHASE) ad_dataclk<=1;
+            else if(phase==(FAST_PROFILE ? 3 : 9)) ad_dataclk<=0;
             // D13..D28: sixteen genuinely shielded CCD samples, not the
             // adjacent dummy/unspecified pixels. Active-low default polarity.
             ad_clpob<=!(reading && pixel_count>=13 && pixel_count<=28);
@@ -67,10 +73,10 @@ module ccd_afe_timing #(
                 frame_start<=1;frame_timestamp<=ticks;
                 // Latch once per SH interval; no in-flight shortening of tail.
                 if(DYNAMIC_PERIOD)
-                    active_tail_pixels<=period_pixels-(PRE_PIXELS+SH_PIXELS+POST_PIXELS+2088);
+                    active_tail_pixels<=period_pixels-(PRE_COUNT+SH_COUNT+POST_COUNT+2088);
             end
 
-            if (phase==19) begin
+            if (phase==LAST_PHASE) begin
                 phase<=0;
                 case(state)
                     STOP: begin
@@ -78,15 +84,15 @@ module ccd_afe_timing #(
                         if(run) state<=PRE;
                     end
                     PRE: begin
-                        if(pixel_count==PRE_PIXELS-1) begin state<=SHIFT;pixel_count<=0;end
+                        if(pixel_count==PRE_COUNT-1) begin state<=SHIFT;pixel_count<=0;end
                         else pixel_count<=pixel_count+1'b1;
                     end
                     SHIFT: begin
-                        if(pixel_count==SH_PIXELS-1) begin state<=POST;pixel_count<=0;end
+                        if(pixel_count==SH_COUNT-1) begin state<=POST;pixel_count<=0;end
                         else pixel_count<=pixel_count+1'b1;
                     end
                     POST: begin
-                        if(pixel_count==POST_PIXELS-1) begin state<=READOUT;pixel_count<=0;end
+                        if(pixel_count==POST_COUNT-1) begin state<=READOUT;pixel_count<=0;end
                         else pixel_count<=pixel_count+1'b1;
                     end
                     READOUT: begin
@@ -94,7 +100,10 @@ module ccd_afe_timing #(
                         else pixel_count<=pixel_count+1'b1;
                     end
                     TAIL: begin
-                        if(pixel_count==active_tail_pixels-1) begin
+                        // Once the complete readout and ADC tail are drained,
+                        // a stop need not wait out a potentially hours-long idle tail.
+                        if(pixel_count==active_tail_pixels-1 ||
+                           (FAST_PROFILE && !run && pixel_count>=TAIL_PIXELS-1)) begin
                             state<=run ? PRE : STOP;pixel_count<=0;frame_id<=frame_id+1'b1;
                         end else pixel_count<=pixel_count+1'b1;
                     end

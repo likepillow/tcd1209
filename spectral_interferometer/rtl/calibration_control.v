@@ -3,7 +3,7 @@
 // a packet-aware outbound scheduler. Reset must include the calibration cores.
 // packet_sequence must be reserved for this packet when sequence_take pulses;
 // this module does not allocate a global sequence or arbitrate measurement data.
-module calibration_control(
+module calibration_control #(parameter FAST_PROFILE=0)(
     input wire clk,input wire rst_n,
     input wire rx_valid,output wire rx_ready,input wire [7:0] rx_data,
     output wire tx_valid,input wire tx_ready,output wire [7:0] tx_data,output wire tx_last,
@@ -19,7 +19,8 @@ module calibration_control(
     output wire [31:0] export_period_frames,
     output wire acquisition_request,input wire acquisition_ack,
     output wire [10:0] requested_window,
-    output wire [12:0] requested_period,
+    output wire [63:0] requested_period,
+    output wire [31:0] requested_result_stride,
     output wire run_request,input wire run_ack,output wire requested_run
 );
     wire cmd_valid,cmd_ready,payload_valid,payload_ready,payload_last;
@@ -36,9 +37,10 @@ module calibration_control(
         .s_valid(rx_valid),.s_ready(rx_ready),.s_data(rx_data),
         .cmd_valid(cmd_valid),.cmd_ready(cmd_ready),.cmd_kind(cmd_kind),.cmd_sequence(cmd_sequence),.cmd_length(),
         .m_valid(payload_valid),.m_ready(payload_ready),.m_data(payload_data),.m_last(payload_last),.error(receive_error));
-    calibration_loader loader(.clk(clk),.rst_n(rst_n),
+    calibration_loader #(.FAST_PROFILE(FAST_PROFILE)) loader(.clk(clk),.rst_n(rst_n),
         .acquisition_request(acquisition_request),.acquisition_ack(acquisition_ack),
         .requested_window(requested_window),.requested_period(requested_period),
+        .requested_result_stride(requested_result_stride),
         .run_request(run_request),.run_ack(run_ack),.requested_run(requested_run),
         .export_period_frames(export_period_frames),
         .cmd_valid(cmd_valid),.cmd_ready(cmd_ready),.cmd_kind(cmd_kind),.cmd_sequence(cmd_sequence),

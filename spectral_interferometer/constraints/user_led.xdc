@@ -1,0 +1,12 @@
+# ACX720-V3 schematic pages 1/10: active-high D0..D7; explicit zero drives off.
+set_property PACKAGE_PIN M22 [get_ports {user_led[0]}]
+set_property PACKAGE_PIN N22 [get_ports {user_led[1]}]
+set_property PACKAGE_PIN L21 [get_ports {user_led[2]}]
+set_property PACKAGE_PIN K21 [get_ports {user_led[3]}]
+set_property PACKAGE_PIN K22 [get_ports {user_led[4]}]
+set_property PACKAGE_PIN J22 [get_ports {user_led[5]}]
+set_property PACKAGE_PIN H22 [get_ports {user_led[6]}]
+set_property PACKAGE_PIN M21 [get_ports {user_led[7]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {user_led[*]}]
+set_property DRIVE 4 [get_ports {user_led[*]}]
+set_property SLEW SLOW [get_ports {user_led[*]}]

@@ -15,6 +15,7 @@ from protocol import Kind, Packet, TIME_VALID, export_command
 from receiver import FileReceiver, ReplayPacer
 from acquisition_settings import AcquisitionSettings
 from recording import Recorder
+from session_recording import jsonlines
 from workbench import DisplayState
 from test_run_control import FakeUSB
 
@@ -152,7 +153,7 @@ class SessionEdgeTests(unittest.TestCase):
                 worker.join(2)
             self.assertTrue(worker.shutdown_confirmed.is_set())
             manifest = json.loads((live_record / 'manifest.json').read_text('utf-8'))
-            self.assertEqual([e['running'] for e in manifest['metadata']['run_events']],
+            self.assertEqual([e['running'] for e in jsonlines(live_record/'events.jsonl') if e['type'] == 'run'],
                              [False, True, False, True, False, False])
             self.assertEqual(len(list(root.glob('live/manifest.json'))), 1)
 
@@ -183,7 +184,7 @@ class SessionEdgeTests(unittest.TestCase):
                              [Kind.RUN_CONTROL, Kind.EXPORT, Kind.RUN_CONTROL])
             self.assertEqual(struct.unpack('<I', usb.writes[1].payload)[0], 10)
             manifest = json.loads((record / 'manifest.json').read_text('utf-8'))
-            self.assertEqual([e['running'] for e in manifest['metadata']['run_events']],
+            self.assertEqual([e['running'] for e in jsonlines(record/'events.jsonl') if e['type'] == 'run'],
                              [False, False])
 
     def test_stop_ack_timeout_does_not_confirm_shutdown_or_close_window(self):

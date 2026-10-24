@@ -103,7 +103,21 @@ class Recorder:
         events = self.metadata.setdefault('acquisition_events', [])
         events.append({'after_packet': self.decoder.packets,
                        'window_start': settings.window_start,
-                       'period_pixels': settings.period_pixels})
+                       'period_pixels': settings.period_pixels,
+                       'pixel_ticks': settings.pixel_ticks,
+                       'result_stride': settings.result_stride})
+        self._write_status(False, None)
+
+    def command_applied(self, command, ack, details=None):
+        event = dict(after_packet=self.decoder.packets, kind=int(command.kind),
+                     sequence=command.sequence, payload_hex=command.payload.hex(),
+                     source_version=ack.source_version, k_version=ack.k_version)
+        if details is not None:
+            event['calibration'] = details
+        self.configuration_event(event)
+
+    def configuration_event(self, event):
+        self.metadata.setdefault('configuration_events', []).append(dict(event, after_packet=self.decoder.packets))
         self._write_status(False, None)
 
     def run_state_changed(self, running):
@@ -147,19 +161,23 @@ def replay(path, chunk_size=65536):
     """
     if chunk_size <= 0:
         raise ValueError('chunk_size must be positive')
+    from session_recording import iter_chunks, load_manifest, session_directory
+    directory = session_directory(path)
+    manifest = load_manifest(path) if directory else None
     decoder = Decoder()
     sequence = SequenceTracker()
-    with Path(path).open('rb') as stream:
-        while chunk := stream.read(chunk_size):
-            for packet in decoder.feed(chunk):
-                sequence.observe(packet.sequence)
-                if packet.flags & DISCONTINUITY:
-                    raise ValueError('Device explicitly marked a discontinuity')
-                yield packet
+    for chunk in iter_chunks(path, chunk_size):
+        for packet in decoder.feed(chunk):
+            sequence.observe(packet.sequence)
+            if packet.flags & DISCONTINUITY:
+                raise ValueError('Device explicitly marked a discontinuity')
+            yield packet
     decoder.finish()
     if (decoder.bad_headers or decoder.bad_crc or decoder.bad_payloads or decoder.discarded_bytes
             or sequence.missing or sequence.out_of_order):
         raise ValueError('Recording has corruption, missing packets or out-of-order packets')
+    if manifest and not manifest['closed_cleanly']:
+        raise ValueError('Session did not close cleanly; use recovery to inspect committed evidence')
 
 
 def main():

@@ -10,6 +10,7 @@ if {[llength $argv] == 2} {
         control {set variant control}
         clipping {set variant clipping}
         capture40 {set variant capture40}
+        exposure {set variant exposure}
         default {error "Unsupported USB variant"}
     }
 }
@@ -19,6 +20,7 @@ open_checkpoint [file join $root build ${variant}_synth processor.dcp]
 if {[get_property PART [current_design]] ne "xc7a200tfbg484-2"} {error "Wrong device"}
 read_xdc [file join $root constraints diagnostic.xdc]
 read_xdc [file join $root constraints fx2_pins.xdc]
+if {[llength [get_ports -quiet user_led*]]} {read_xdc [file join $root constraints user_led.xdc]}
 if {![llength [get_clocks -quiet usb_clock]]} {
     error "Synthesized board checkpoint is missing USB clock constraint"
 }

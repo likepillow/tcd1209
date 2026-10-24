@@ -6,6 +6,7 @@ import json
 
 from protocol import Decoder, Kind
 from recording import Recorder
+from session_recording import iter_chunks, load_manifest, session_directory, jsonlines
 from acquisition_settings import AcquisitionSettings
 
 
@@ -22,6 +23,7 @@ class ReplayPacer:
         self._last_frame = None
         self._fallback_ticks = 0
         self._period_pixels = period_pixels
+        self._pixel_ticks = 20
         self.estimated = False
         self.set_speed(speed)
 
@@ -41,8 +43,9 @@ class ReplayPacer:
                 self._anchor_wall = now
         self._wake.set()
 
-    def set_period(self, period_pixels):
+    def set_period(self, period_pixels, pixel_ticks=20):
         self._period_pixels = int(period_pixels)
+        self._pixel_ticks = int(pixel_ticks)
 
     def _ticks(self, packet):
         from protocol import TIME_VALID, NO_FRAME
@@ -56,7 +59,7 @@ class ReplayPacer:
         elif packet.frame_id != self._last_frame:
             delta = (packet.frame_id-self._last_frame) & 0xffffffff
             if delta < 2**31:
-                self._fallback_ticks += delta*self._period_pixels*20
+                self._fallback_ticks += delta*self._period_pixels*self._pixel_ticks
             self._last_frame = packet.frame_id
         return self._fallback_ticks
 
@@ -103,15 +106,22 @@ class FileReceiver(threading.Thread):
         recorder = None
         try:
             decoder = Decoder()
-            events, run_events = {}, {}
+            events, run_events, config_events = {}, {}, {}
+            directory = session_directory(self.path)
+            session_manifest = load_manifest(self.path) if directory else None
+            session_events = iter(jsonlines(directory/'events.jsonl', session_manifest['event_bytes'])) if session_manifest else iter(())
+            next_session_event = next(session_events, None)
             manifest = self.path.with_name('manifest.json')
             if self.path.name == 'stream.spif' and manifest.exists():
                 metadata = json.loads(manifest.read_text(encoding='utf-8')).get('metadata', {})
                 for event in metadata.get('acquisition_events', []):
                     events[int(event['after_packet'])] = AcquisitionSettings(
-                        int(event['window_start']), int(event['period_pixels']))
+                        int(event['window_start']), int(event['period_pixels']),
+                        int(event.get('pixel_ticks', 20)), int(event.get('result_stride', 1)))
                 for event in metadata.get('run_events', []):
                     run_events.setdefault(int(event['after_packet']), []).append(bool(event['running']))
+                for event in metadata.get('configuration_events', []):
+                    config_events.setdefault(int(event['after_packet']), []).append(event)
             if self.record_to is not None:
                 recorder = Recorder(self.record_to, {'source_mode': 'file_replay', 'source_path': str(self.path)})
                 decoder = recorder.decoder
@@ -121,13 +131,16 @@ class FileReceiver(threading.Thread):
             if 0 in events:
                 settings = events[0]
                 self.display.set_acquisition(settings)
-                self.pacer.set_period(settings.period_pixels)
+                self.pacer.set_period(settings.period_pixels, settings.pixel_ticks)
                 if recorder is not None:
                     recorder.acquisition_applied(settings)
             for running in run_events.get(0, ()):
                 self.display.set_running(running)
                 if recorder is not None:
                     recorder.run_state_changed(running)
+            if recorder is not None:
+                for event in config_events.get(0, ()):
+                    recorder.configuration_event(event)
             label = '不限速' if self.pacer.speed is None else f'{self.pacer.speed:g}×'
             self.display.set_status(f'离线回放中：{label}；优先使用 FPGA 100 MHz 时间戳')
 
@@ -136,38 +149,62 @@ class FileReceiver(threading.Thread):
                 if self.stop_event.is_set():
                     return
                 self.display.ingest(packet)
+                apply_session_events(decoder.packets)
                 if decoder.packets in events:
                     settings = events[decoder.packets]
                     self.display.set_acquisition(settings)
-                    self.pacer.set_period(settings.period_pixels)
+                    self.pacer.set_period(settings.period_pixels, settings.pixel_ticks)
                     if recorder is not None:
                         recorder.acquisition_applied(settings)
                 for running in run_events.get(decoder.packets, ()):
                     self.display.set_running(running)
                     if recorder is not None:
                         recorder.run_state_changed(running)
+                if recorder is not None:
+                    for event in config_events.get(decoder.packets, ()):
+                        recorder.configuration_event(event)
                 if packet.kind == Kind.RESULT and self.result_interval is not None and self.result_interval:
                     self.stop_event.wait(self.result_interval)
 
+            def apply_session_events(ordinal):
+                nonlocal next_session_event
+                while next_session_event is not None and next_session_event['after_packet'] <= ordinal:
+                    event = next_session_event
+                    if event['type'] == 'acquisition':
+                        settings = AcquisitionSettings(event['window_start'], event['period_pixels'],
+                            event['pixel_ticks'], event['result_stride'])
+                        self.display.set_acquisition(settings)
+                        self.pacer.set_period(settings.period_pixels, settings.pixel_ticks)
+                        if recorder is not None:
+                            recorder.acquisition_applied(settings)
+                    elif event['type'] == 'run':
+                        self.display.set_running(event['running'])
+                        if recorder is not None:
+                            recorder.run_state_changed(event['running'])
+                    elif recorder is not None:
+                        recorder.configuration_event(event)
+                    next_session_event = next(session_events, None)
+
+            apply_session_events(0)
             last_flush = time.monotonic()
-            with self.path.open('rb') as stream:
-                while not self.stop_event.is_set():
-                    chunk = stream.read(32768)
-                    if not chunk:
-                        break
-                    if recorder is None:
-                        for packet in decoder.feed(chunk):
-                            receive(packet)
-                    else:
-                        recorder.append(chunk, receive)
-                        if time.monotonic()-last_flush > 1:
-                            recorder.flush()
-                            last_flush = time.monotonic()
+            for chunk in iter_chunks(self.path, 32768):
+                if self.stop_event.is_set():
+                    break
+                if recorder is None:
+                    for packet in decoder.feed(chunk):
+                        receive(packet)
+                else:
+                    recorder.append(chunk, receive)
+                    if time.monotonic()-last_flush > 1:
+                        recorder.flush()
+                        last_flush = time.monotonic()
             if self.stop_event.is_set():
                 self.failure = '用户停止回放，未完成全文件校验'
                 self.display.set_status(self.failure)
             else:
                 decoder.finish()
+                if session_manifest and not session_manifest['closed_cleanly']:
+                    raise ValueError('会话未正常关闭；当前仅回放已提交边界，请生成恢复报告')
                 state = self.display.snapshot()
                 if (decoder.bad_headers or decoder.bad_crc or decoder.bad_payloads or decoder.discarded_bytes
                         or state['missing'] or state['out_of_order'] or state['discontinuities']):

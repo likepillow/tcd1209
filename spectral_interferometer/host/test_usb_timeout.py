@@ -7,7 +7,8 @@ class TimeoutClassification(unittest.TestCase):
     def test_observed_idle_and_rejected_variants(self):
         idle = Transfer(False, 0, 997, b'', 0xC0000120, 0xC0010000, 205)
         self.assertTrue(idle.idle_timeout)
-        for changes in ({'count': 1, 'data': b'x'}, {'elapsed_ms': 199},
+        self.assertTrue(replace(idle, elapsed_ms=199).idle_timeout)
+        for changes in ({'count': 1, 'data': b'x'}, {'elapsed_ms': 198},
                         {'nt_status': 0}, {'usbd_status': 0}, {'error': 1167},
                         {'success': True}, {'data': b'x'}):
             with self.subTest(changes=changes):

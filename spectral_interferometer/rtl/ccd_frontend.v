@@ -8,10 +8,11 @@ module ccd_frontend #(
     parameter integer SETTLE_CYCLES=10000000,
     parameter integer DYNAMIC_PERIOD=0,
     // Compile-time diagnostic option; retain the deployed 20 ns default.
-    parameter integer ADC_CAPTURE_DELAY=2
+    parameter integer ADC_CAPTURE_DELAY=2,
+    parameter integer FAST_PROFILE=0
 )(
     input wire clk,input wire rst_n,input wire run,
-    input wire [12:0] period_pixels,
+    input wire [63:0] period_pixels,
     input wire [11:0] adc_data,
     output wire ccd_phi1,output wire ccd_phi2,output wire ccd_sh,
     output wire ccd_rs,output wire ccd_cp,
@@ -34,7 +35,7 @@ module ccd_frontend #(
     ad9945_init #(.POWERUP_CYCLES(POWERUP_CYCLES)) startup(
         .clk(clk),.rst_n(rst_n),.ad_sck(ad_sck),.ad_sdata(ad_sdata),
         .ad_sl(ad_sl),.configure_done(configure_done));
-    ccd_afe_timing #(.DYNAMIC_PERIOD(DYNAMIC_PERIOD)) timing(.clk(clk),.rst_n(rst_n),.run(run && configure_done && !fault),
+    ccd_afe_timing #(.DYNAMIC_PERIOD(DYNAMIC_PERIOD),.FAST_PROFILE(FAST_PROFILE)) timing(.clk(clk),.rst_n(rst_n),.run(run && configure_done && !fault),
         .period_pixels(period_pixels),
         .ccd_phi1(ccd_phi1),.ccd_phi2(ccd_phi2),.ccd_sh(ccd_sh),.ccd_rs(ccd_rs),.ccd_cp(ccd_cp),
         .ad_shp(ad_shp),.ad_shd(ad_shd),.ad_dataclk(ad_dataclk),.ad_clpob(ad_clpob),.ad_pblk(ad_pblk),

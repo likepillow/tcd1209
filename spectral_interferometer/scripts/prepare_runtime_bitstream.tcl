@@ -2,11 +2,12 @@ if {[llength $argv] < 1 || [llength $argv] > 2} {error "Pass project root and op
 set root [lindex $argv 0]
 if {[file pathtype $root] ne "absolute"} {error "Absolute root required"}
 set variant [expr {[llength $argv] == 2 ? [lindex $argv 1] : "runtime"}]
-if {$variant ni {runtime control clipping capture40}} {error "Unsupported variant"}
+if {$variant ni {runtime control clipping capture40 exposure}} {error "Unsupported variant"}
 switch $variant {
     control {set marker 0x26092402}
     clipping {set marker 0x26100301}
     capture40 {set marker 0x26100440}
+    exposure {set marker 0x26102402}
     runtime {set marker 0x26092401}
 }
 set output [file join $root build ${variant}_deploy]

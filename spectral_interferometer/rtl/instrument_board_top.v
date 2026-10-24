@@ -7,14 +7,16 @@ module instrument_board_top #(
     parameter FLAGB_EMPTY_ACTIVE_LOW=1,parameter FLAGC_FULL_ACTIVE_LOW=1,
     parameter integer USB_IFCLK_MHZ=48,
     parameter integer AUTO_START=0,
-    parameter integer ADC_CAPTURE_DELAY=2
+    parameter integer ADC_CAPTURE_DELAY=2,
+    parameter integer FAST_PROFILE=0
 )(
     input wire clk_50mhz,input wire reset_button_n,input wire [11:0] ad_data,
     output wire ccd_phi1,ccd_phi2,ccd_sh,ccd_rs,ccd_cp,
     output wire ad_shp,ad_shd,ad_dataclk,ad_clpob,ad_pblk,ad_sck,ad_sdata,ad_sl,
     input wire usb_ifclk,input wire usb_flaga,input wire usb_flagb,input wire usb_flagc,
     inout wire [15:0] usb_fd,output wire [1:0] usb_fifo_addr,
-    output wire usb_slrd_n,usb_slwr_n,usb_sloe_n,usb_pktend_n,usb_slcs_n
+    output wire usb_slrd_n,usb_slwr_n,usb_sloe_n,usb_pktend_n,usb_slcs_n,
+    output wire [7:0] user_led
 );
     wire clk,locked,board_reset_n,ifclk_raw,ifclk;
     wire usb_clock_raw,usb_feedback_raw,usb_feedback,usb_locked;
@@ -54,7 +56,9 @@ module instrument_board_top #(
     wire [31:0] dropped_frames,malformed_frames,busy_skipped_frames,rate_skipped_frames;
     wire ep2_has_data=FLAGB_EMPTY_ACTIVE_LOW ? usb_flagb : !usb_flagb;
     wire ep6_has_space=FLAGC_FULL_ACTIVE_LOW ? usb_flagc : !usb_flagc;
-    instrument_frontend_usb #(.ADC_CAPTURE_DELAY(ADC_CAPTURE_DELAY)) instrument(.*,
+    // D0..D7 are active-high. No heartbeat/PWM light during optical measurements.
+    assign user_led=8'b0;
+    instrument_frontend_usb #(.ADC_CAPTURE_DELAY(ADC_CAPTURE_DELAY),.FAST_PROFILE(FAST_PROFILE)) instrument(.*,
         .fd(usb_fd),.fifo_addr(usb_fifo_addr),.slrd_n(usb_slrd_n),.slwr_n(usb_slwr_n),
         .sloe_n(usb_sloe_n),.pktend_n(usb_pktend_n),.slcs_n(usb_slcs_n));
     // Only synchronized IFCLK-domain indicators enter the system-domain VIO.

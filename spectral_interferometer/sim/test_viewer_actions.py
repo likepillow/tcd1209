@@ -32,6 +32,10 @@ class ViewerActionTests(unittest.TestCase):
         app.worker = None
         app.window_start = Mock()
         app.exposure_us = Mock()
+        app.clock_profile = Mock()
+        app.clock_profile.get.return_value = '5 MHz旧版'
+        app.result_stride = Mock()
+        app.result_stride.get.return_value = '1'
         app.applied_acquisition = None
         app.acquisition_pending = False
         app.display = DisplayState()

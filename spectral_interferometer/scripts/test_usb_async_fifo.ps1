@@ -1,4 +1,4 @@
-param([switch]$Bridge)
+param([switch]$Bridge,[switch]$Large)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 $bin='C:\Xilinx\Vivado\2018.3\bin'
@@ -24,5 +24,13 @@ try {
         & "$bin\xsim.bat" usb_bridge_test -runall -log bridge_xsim.log
         if($LASTEXITCODE){throw 'bridge simulation failed'}
         if(!(Select-String -Path bridge_xsim.log -SimpleMatch 'PASS: USB bridges' -Quiet)){throw 'No passing bridge result'}
+    }
+    if($Large) {
+        & "$bin\xvlog.bat" --sv "$root\sim\tb_usb_large_fifo.sv"
+        if($LASTEXITCODE){throw 'large FIFO compile failed'}
+        & "$bin\xelab.bat" tb_usb_large_fifo glbl -L unisims_ver -s usb_large_test
+        if($LASTEXITCODE){throw 'large FIFO elaboration failed'}
+        & "$bin\xsim.bat" usb_large_test -runall -log large_xsim.log
+        if($LASTEXITCODE -or !(Select-String -Path large_xsim.log -SimpleMatch 'PASS: 32768-word XPM FIFO' -Quiet)){throw 'No passing large FIFO result'}
     }
 } finally {Pop-Location}

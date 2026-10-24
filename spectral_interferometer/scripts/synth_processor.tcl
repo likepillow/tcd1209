@@ -5,6 +5,7 @@ set output_name processor_synth
 set usb_mhz 48
 set autonomous 0
 set capture_cycles 2
+set fast_profile 0
 if {[llength $argv] == 2} {
     switch [lindex $argv 1] {
         capture {set design_top acquisition_core;set output_name acquisition_synth}
@@ -16,6 +17,7 @@ if {[llength $argv] == 2} {
         control {set design_top instrument_board_top;set output_name control_synth;set usb_mhz 30;set autonomous 1}
         clipping {set design_top instrument_board_top;set output_name clipping_synth;set usb_mhz 30;set autonomous 1}
         capture40 {set design_top instrument_board_top;set output_name capture40_synth;set usb_mhz 30;set autonomous 1;set capture_cycles 4}
+        exposure {set design_top instrument_board_top;set output_name exposure_synth;set usb_mhz 30;set autonomous 1;set capture_cycles 4;set fast_profile 1}
         default {error "Second argument must be capture or instrument"}
     }
 }
@@ -67,7 +69,7 @@ foreach ipname $ipnames {
     if {![string match {*Complete*} [get_property STATUS [get_runs $runname]]]} {error "IP synthesis failed: $runname"}
 }
 if {$design_top eq "instrument_board_top"} {
-    synth_design -top $design_top -part xc7a200tfbg484-2 -generic [list USB_IFCLK_MHZ=$usb_mhz AUTO_START=$autonomous ADC_CAPTURE_DELAY=$capture_cycles]
+    synth_design -top $design_top -part xc7a200tfbg484-2 -generic [list USB_IFCLK_MHZ=$usb_mhz AUTO_START=$autonomous ADC_CAPTURE_DELAY=$capture_cycles FAST_PROFILE=$fast_profile]
 } else {
     synth_design -mode out_of_context -top $design_top -part xc7a200tfbg484-2
 }
@@ -93,6 +95,7 @@ if {[llength $unresolved]} {
 if {$design_top eq "instrument_board_top"} {
     read_xdc [file join $root constraints diagnostic.xdc]
     read_xdc [file join $root constraints fx2_pins.xdc]
+    read_xdc [file join $root constraints user_led.xdc]
     create_clock -name usb_clock -period [expr {1000.0/$usb_mhz}] [get_ports usb_ifclk]
     report_io -file [file join $output io.rpt]
 } else {

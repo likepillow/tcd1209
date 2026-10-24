@@ -1,5 +1,7 @@
 # SPIF v1 传输与记录契约
 
+2026-10-24：线上协议不变，新增SPIF session容器v2。在线记录默认分卷，使用manifest打开整场；原Recorder及单文件读取保留兼容。新队列、索引、提交边界、恢复与命令见[D1长时间记录与局部读取](D1长时间记录与局部读取.md)。下文单文件Recorder说明描述兼容后端。
+
 协议已连接 FPGA 采集/处理核心、FX2 Slave FIFO 和在线上位机。当前控制版增加了显式采集启停；连接 USB 只建立“已准备、已停止”状态，不会自动启动 CCD。此协议是本项目定义的协议，不假定与开发板原厂固件兼容。
 
 ## 包头与校验
@@ -35,6 +37,9 @@ RAW、SPECTRUM、PHASE 和 RESULT 的有效时间戳来自 FPGA 100 MHz 自由�
 | 0x23 EXPORT_CONTROL | 主机→FPGA | 4 | RAW/S0 输出间隔 u32；0=关闭，1=每帧，N=每 N 帧 |
 | 0x24 ACQUISITION | 主机→FPGA | 8 | W:u32、T:u32；W=0..1024，T=2114..5000 个 5 MHz 像素周期 |
 | 0x25 RUN_CONTROL | 主机→FPGA | 4 | u32；0=安全停止，1=开始，其他值非法 |
+| 0x27 EXPOSURE | 主机→FPGA | 16 | 新版12.5 MHz专用：W:u32、period_pixels:u64、RESULT间隔N:u32；W≤1024，2500≤period_pixels≤2^61−1，N≥1。周期=period_pixels×80 ns；不设1000 Hz门槛 |
+
+0x24仍只用于旧5 MHz配置，其实际合法周期为2114..4999。新版与旧版对不支持的曝光命令不互相猜测单位；新版拒绝0x24并返回不支持ACK。0x27采用原CRC与ACK格式，先排空再应用，清除S/K但不重置USB包序号；后续重新上传匹配曝光/时钟的S/K。仅选择RESULT输出，不改变每帧内部计算。参见`曝光关灯与科研导出升级.md`。
 
 RESULT 的距离为 signed_accumulator×2^(−exponent)，单位由保存的 K 和距离比例定义。累加值在 Python 中使用任意精度整数，在 CSV 中保存十进制整数字符串，不先转换为 double。无效标志有效时，主机将距离视为 NaN，CSV 留空，不能把零显示成一次有效测距。主峰范围使用 1..511，left≤peak≤right；没有主峰时允许三者均为 0，并应携带无效标志。
 

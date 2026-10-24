@@ -1,11 +1,12 @@
 if {[llength $argv] < 1 || [llength $argv] > 2} {error "Pass project root and optional variant"}
 set root [lindex $argv 0]
 set variant [expr {[llength $argv] == 2 ? [lindex $argv 1] : "runtime"}]
-if {$variant ni {runtime control clipping capture40}} {error "Unsupported variant"}
+if {$variant ni {runtime control clipping capture40 exposure}} {error "Unsupported variant"}
 switch $variant {
     control {set marker 26092402}
     clipping {set marker 26100301}
     capture40 {set marker 26100440}
+    exposure {set marker 26102402}
     runtime {set marker 26092401}
 }
 open_hw

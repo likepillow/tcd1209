@@ -40,6 +40,7 @@ class DisplayState:
             self.acquisition = None
             self.running = None
             self.frames = {}
+            self.stream_frames = {}
             self.invalid = {}
             self.history = deque(maxlen=self.history_size)
             self.result = None
@@ -153,6 +154,10 @@ class DisplayState:
                 self.revision += 1
                 return
             gap = self.sequence.missing != previous_missing or bool(packet.flags & DISCONTINUITY)
+            if packet.kind in (Kind.RAW, Kind.SPECTRUM, Kind.PHASE, Kind.RESULT):
+                previous_frame = self.stream_frames.get(packet.kind)
+                gap |= previous_frame is not None and ((packet.frame_id-previous_frame) & 0xffffffff) != 1
+                self.stream_frames[packet.kind] = packet.frame_id
             self.discontinuities += int(bool(packet.flags & DISCONTINUITY))
             self.pending_gap |= gap
             if packet.kind == Kind.RAW:
@@ -247,9 +252,14 @@ class LocalCalibration:
     period_pixels: int = 2114
     source_original: object = None
     source_original_origin: str = ''
+    pixel_ticks: int = 20
 
     def __post_init__(self):
-        AcquisitionSettings(self.window_start, self.period_pixels)
+        AcquisitionSettings(self.window_start, self.period_pixels, self.pixel_ticks)
+
+    def matches(self, settings):
+        return (self.window_start, self.period_pixels, self.pixel_ticks) == (
+            settings.window_start, settings.period_pixels, settings.pixel_ticks)
 
     def set_source(self, values, origin=''):
         source = crop1024(values, 'S', self.window_start)
@@ -298,6 +308,7 @@ class LocalCalibration:
             np.savez_compressed(stream, source=self.source, k=self.k, distance_scale=self.scale,
                                 k_units=self.k_units, source_origin=self.source_origin, k_origin=self.k_origin,
                                 window_start=self.window_start, period_pixels=self.period_pixels,
+                                pixel_ticks=self.pixel_ticks,
                                 source_original=np.array([]) if self.source_original is None else self.source_original,
                                 source_original_origin=self.source_original_origin)
 
@@ -307,6 +318,7 @@ class LocalCalibration:
             result = cls(scale=float(data['distance_scale']),
                          window_start=int(data['window_start']) if 'window_start' in data else 512,
                          period_pixels=int(data['period_pixels']) if 'period_pixels' in data else 2114,
+                         pixel_ticks=int(data['pixel_ticks']) if 'pixel_ticks' in data else 20,
                          k_units=str(data['k_units']) if 'k_units' in data else '未指定')
             result.set_source(data['source'], str(data['source_origin']) if 'source_origin' in data else str(path))
             if 'source_original' in data and data['source_original'].size:

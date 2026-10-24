@@ -3,7 +3,7 @@
 // through reset recovery, synchronous to their respective clocks. Both clocks
 // must run. Board wrapper supplies normalized flag polarity and pin constraints.
 // Session restart must also clear stale FX2 endpoint bytes; no silent reconnect.
-module fx2_transport(
+module fx2_transport #(parameter integer TX_DEPTH=1024)(
     input wire sys_clk,input wire ifclk,input wire sys_rst,input wire if_rst,
     input wire tx_valid,output wire tx_ready,input wire [7:0] tx_data,input wire tx_last,
     output wire rx_valid,input wire rx_ready,output wire [7:0] rx_data,
@@ -27,7 +27,7 @@ module fx2_transport(
     assign sloe_n=oe_i;
     assign pktend_n=end_i;
     assign slcs_n=cs_i;
-    usb_tx_bridge tx_bridge(.wr_clk(sys_clk),.rd_clk(ifclk),.rst(sys_rst),
+    usb_tx_bridge #(.DEPTH(TX_DEPTH)) tx_bridge(.wr_clk(sys_clk),.rd_clk(ifclk),.rst(sys_rst),
         .s_valid(tx_valid),.s_ready(tx_ready),.s_data(tx_data),.s_last(tx_last),
         .m_valid(word_tx_valid),.m_ready(word_tx_ready),.m_data(word_tx_data),.m_last(word_tx_last),.fault(fault));
     usb_rx_bridge rx_bridge(.wr_clk(ifclk),.rd_clk(sys_clk),.rst(if_rst),

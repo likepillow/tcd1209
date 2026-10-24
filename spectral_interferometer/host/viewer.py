@@ -4,16 +4,18 @@ No host FFT is performed to manufacture a displayed distance. Result curves
 come exclusively from RESULT packets. Requires Python with Tk 8.6 and NumPy.
 """
 import argparse
+import json
 import queue
+import threading
 from pathlib import Path
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 
 import numpy as np
 
 from receiver import FileReceiver
 from live_receiver import USBReceiver
-from protocol import Decoder, export_command, acquisition_command
+from protocol import Decoder, Kind, export_command, acquisition_command
 from acquisition_settings import AcquisitionSettings
 from workbench import DisplayState, LocalCalibration, load_text, trend
 
@@ -102,6 +104,9 @@ class Viewer:
         self.closing = False
         self.close_alarm_shown = False
         self.run_pending = False
+        self.export_thread = None
+        self.export_cancel = threading.Event()
+        self.export_events = queue.Queue()
         self.channel = tk.StringVar(value='S0')
         self.scale = tk.StringVar(value='1.0')
         self.units = tk.StringVar(value='未指定')
@@ -111,6 +116,8 @@ class Viewer:
         self.replay_speed = tk.StringVar(value='1×')
         self.window_start = tk.StringVar(value='512')
         self.exposure_us = tk.StringVar(value='422.8')
+        self.clock_profile = tk.StringVar(value='5 MHz旧版')
+        self.result_stride = tk.StringVar(value='1')
         self.applied_acquisition = None
         self.acquisition_pending = False
         self.save_copy = tk.BooleanVar(value=False)
@@ -139,6 +146,7 @@ class Viewer:
         self.usb_button.pack(side='left', padx=6)
         self.replay_stop_button = ttk.Button(toolbar, text='停止回放', command=self.stop_replay)
         self.replay_stop_button.pack(side='left', padx=6)
+        ttk.Button(toolbar, text='科研导出 HDF5/CSV', command=self.export_research).pack(side='right', padx=4)
         ttk.Label(toolbar, text='回放速度').pack(side='left', padx=(10, 3))
         speed_box = ttk.Combobox(toolbar, textvariable=self.replay_speed,
                                 values=('0.25×', '0.5×', '1×', '2×', '4×', '不限速'),
@@ -161,7 +169,10 @@ class Viewer:
         ttk.Entry(acquisition_row, textvariable=self.window_start, width=7).pack(side='left', padx=6)
         ttk.Label(acquisition_row, text='曝光周期 T / μs').pack(side='left')
         ttk.Entry(acquisition_row, textvariable=self.exposure_us, width=9).pack(side='left', padx=6)
-        ttk.Label(acquisition_row, text='422.8～999.8；步进0.2').pack(side='left')
+        ttk.Combobox(acquisition_row, textvariable=self.clock_profile,
+                     values=('5 MHz旧版', '12.5 MHz新版'), state='readonly', width=14).pack(side='left')
+        ttk.Label(acquisition_row, text='距离每N帧输出').pack(side='left', padx=(6, 0))
+        ttk.Entry(acquisition_row, textvariable=self.result_stride, width=5).pack(side='left')
         self.acquisition_button = ttk.Button(acquisition_row, text='应用 W/T（清除标定）',
                                              command=self.send_acquisition, state='disabled')
         self.acquisition_button.pack(side='right')
@@ -238,7 +249,7 @@ class Viewer:
         self.worker.start()
 
     def open_replay(self):
-        path = filedialog.askopenfilename(parent=self.root, title='打开已保存的 SPIF 字节流', filetypes=[('SPIF 数据', '*.spif'), ('所有文件', '*.*')])
+        path = filedialog.askopenfilename(parent=self.root, title='打开 SPIF 或分卷会话 manifest.json', filetypes=[('SPIF 会话', '*.spif *.json'), ('所有文件', '*.*')])
         if not path:
             return
         record_to = None
@@ -268,28 +279,76 @@ class Viewer:
             self.applied_acquisition = None
             self.acquisition_pending = False
             self.run_pending = False
-            self.worker = USBReceiver(dll, self.display, record_to=record_to)
+            self.worker = USBReceiver(dll, self.display, record_to=record_to,
+                                      recording_options=getattr(self, 'recording_options', None),
+                                      recording_metadata=getattr(self, 'recording_metadata', None))
             self.worker.start()
         except Exception as error:
             self.error(error)
 
     def send_configuration(self):
         try:
-            if self.applied_acquisition != AcquisitionSettings(self.calibration.window_start, self.calibration.period_pixels):
+            if self.applied_acquisition is None or not self.calibration.matches(self.applied_acquisition):
                 raise ValueError('标定的 W/T 与设备已确认配置不一致，请先应用对应 W/T')
             self.sync_calibration_fields()
             packets = list(Decoder().feed(self.calibration.commands()))
             for packet in packets:
-                self.worker.submit(packet)
+                if packet.kind == Kind.K_WEIGHTS:
+                    self.worker.submit(packet, calibration_metadata={
+                        'source': self.calibration.source.tolist(), 'k': self.calibration.k.tolist(),
+                        'distance_scale': self.calibration.scale, 'k_units': self.calibration.k_units,
+                        'source_origin': self.calibration.source_origin, 'k_origin': self.calibration.k_origin,
+                        'window_start': self.calibration.window_start,
+                        'period_pixels': self.calibration.period_pixels,
+                        'pixel_ticks': self.calibration.pixel_ticks})
+                else:
+                    self.worker.submit(packet)
             self.command_status.set('S/K 已排队；等待 FPGA 分别确认')
         except Exception as error:
             self.error(error)
+
+    def export_research(self):
+        if getattr(self, 'export_thread', None) is not None and self.export_thread.is_alive():
+            self.error(ValueError('已有科研导出任务进行中'))
+            return
+        source = filedialog.askopenfilename(parent=self.root, title='选择已结束采集的SPIF记录',
+            filetypes=[('SPIF 会话', '*.spif *.json'), ('所有文件', '*.*')])
+        if not source:
+            return
+        destination = filedialog.asksaveasfilename(parent=self.root, title='新建导出目录（不能是已存在目录）',
+            initialfile=Path(source).stem+'_research')
+        if not destination:
+            return
+        limits = simpledialog.askstring('导出帧号区间',
+            '留空导出全部，或输入起止帧号，例如1000:2000（各分段内含端点）', parent=self.root)
+        if limits is None:
+            return
+        try:
+            lo, hi = (None, None) if not limits.strip() else tuple(int(x) for x in limits.split(':'))
+        except (ValueError, TypeError):
+            self.error(ValueError('帧号范围格式应为起点:终点，或留空'))
+            return
+        extra_csv = messagebox.askyesno('光谱CSV', '是否额外导出选中区间的全部光谱CSV？\n大量数据推荐仅HDF5；距离CSV始终导出。', parent=self.root)
+        self.export_cancel.clear()
+        self.command_status.set('科研导出中；不会改变原始SPIF或FPGA配置')
+        def work():
+            try:
+                from research_export import export_recording
+                result = export_recording(source, destination, spectra_csv=extra_csv,
+                    frame_min=lo, frame_max=hi, cancel=self.export_cancel,
+                    progress=lambda done, total: self.export_events.put(('progress', done, total)))
+                self.export_events.put(('done', destination, result))
+            except Exception as error:
+                self.export_events.put(('error', str(error)))
+        self.export_thread = threading.Thread(target=work, name='SPIF scientific export', daemon=True)
+        self.export_thread.start()
 
     def send_acquisition(self):
         try:
             if self.acquisition_pending:
                 raise ValueError('上一条 W/T 配置仍在等待确认')
-            settings = AcquisitionSettings.from_text(self.window_start.get(), self.exposure_us.get())
+            settings = AcquisitionSettings.from_text(self.window_start.get(), self.exposure_us.get(),
+                8 if self.clock_profile.get() == '12.5 MHz新版' else 20, int(self.result_stride.get()))
             self.worker.submit(acquisition_command(settings, 0))
             self.acquisition_pending = True
             self.applied_acquisition = None
@@ -344,7 +403,7 @@ class Viewer:
             if isinstance(self.worker, USBReceiver) and (self.acquisition_pending or state['acquisition'] is None):
                 raise ValueError('请先应用 W/T 并等待设备确认及新 S0 帧')
             settings = state.get('acquisition') or AcquisitionSettings()
-            if (self.calibration.window_start, self.calibration.period_pixels) != (settings.window_start, settings.period_pixels):
+            if not self.calibration.matches(settings):
                 raise ValueError('本地标定 W/T 与当前光谱不一致，请先应用对应配置')
             if 'S0' not in state['channels']:
                 raise ValueError('尚无完整 S0 光谱帧')
@@ -363,7 +422,7 @@ class Viewer:
             if isinstance(self.worker, USBReceiver) and (self.acquisition_pending or state['acquisition'] is None):
                 raise ValueError('请先应用 W/T 并等待设备确认')
             settings = state.get('acquisition') or AcquisitionSettings()
-            if (self.calibration.window_start, self.calibration.period_pixels) != (settings.window_start, settings.period_pixels):
+            if not self.calibration.matches(settings):
                 raise ValueError('本地标定 W/T 与当前采集配置不一致')
             count = int(self.source_average_count.get())
             self.display.begin_source_average(count)
@@ -448,7 +507,8 @@ class Viewer:
             try:
                 self.calibration = LocalCalibration.load(path)
                 self.window_start.set(str(self.calibration.window_start))
-                self.exposure_us.set(str(self.calibration.period_pixels/5))
+                self.exposure_us.set(str(self.calibration.period_pixels*self.calibration.pixel_ticks/100))
+                self.clock_profile.set('12.5 MHz新版' if self.calibration.pixel_ticks == 8 else '5 MHz旧版')
                 self.scale.set(str(self.calibration.scale))
                 self.units.set(self.calibration.k_units)
                 self.calibration_labels()
@@ -484,6 +544,16 @@ class Viewer:
             self.error(error)
 
     def refresh(self):
+        while not self.export_events.empty():
+            event = self.export_events.get_nowait()
+            if event[0] == 'progress':
+                self.command_status.set(f'科研导出 {100*event[1]/max(1,event[2]):.1f}%')
+            elif event[0] == 'done':
+                self.command_status.set(f'科研导出完成：{event[1]}；光谱{event[2]["spectra_rows"]}帧，距离{event[2]["result_rows"]}条'
+                    + ('；有抽帧/连续性告警，见report.json' if event[2].get('data_continuity_warning') else ''))
+            else:
+                self.command_status.set('科研导出失败：'+event[1])
+                messagebox.showerror('科研导出未通过', event[1], parent=self.root)
         if self.closing:
             if isinstance(self.worker, USBReceiver):
                 if self.worker.shutdown_confirmed.is_set() and not self.worker.is_alive():
@@ -550,12 +620,13 @@ class Viewer:
                     settings = event[1]
                     self.applied_acquisition = settings
                     self.acquisition_pending = False
-                    if (self.calibration.window_start, self.calibration.period_pixels) != (settings.window_start, settings.period_pixels):
+                    if not self.calibration.matches(settings):
                         self.calibration = LocalCalibration(window_start=settings.window_start,
-                                                            period_pixels=settings.period_pixels)
+                                                            period_pixels=settings.period_pixels,
+                                                            pixel_ticks=settings.pixel_ticks)
                     self.calibration_labels()
                     self.acquisition_status.set(f'已确认 W={settings.window_start}，T={settings.exposure_us:g} μs；'
-                                                f'标称 {settings.nominal_hz:.2f} 帧/秒；请重新配置 S/K')
+                                                f'采集 {settings.nominal_hz:.2f} Hz，距离输出 {settings.result_hz:.2f} Hz；请重新配置 S/K')
                 elif event[0] == 'run':
                     self.run_pending = False
                     self.command_status.set('FPGA 已开始采集' if event[1] else 'FPGA 已安全停止并排空')
@@ -591,6 +662,10 @@ class Viewer:
         self.root.after(50, self.refresh)
 
     def close(self):
+        if getattr(self, 'export_thread', None) is not None and self.export_thread.is_alive():
+            self.export_cancel.set()
+            self.command_status.set('正在取消科研导出，保留部分文件与错误报告；请稍后关闭')
+            return
         if isinstance(self.worker, USBReceiver):
             if self.worker.shutdown_confirmed.is_set() and not self.worker.is_alive():
                 self.root.destroy()
@@ -616,9 +691,36 @@ class Viewer:
 def main():
     parser = argparse.ArgumentParser(description='TCD1209 光谱/距离工作台，支持 USB 采集与 SPIF 回放')
     parser.add_argument('--replay', type=Path)
+    parser.add_argument('--export-spif', type=Path, help='Offline scientific export without opening GUI')
+    parser.add_argument('--export-to', type=Path, help='New export directory')
+    parser.add_argument('--spectra-csv', action='store_true')
+    parser.add_argument('--frame-min', type=int)
+    parser.add_argument('--frame-max', type=int)
+    parser.add_argument('--allow-damaged', action='store_true')
+    parser.add_argument('--record-queue-mib', type=int, default=256)
+    parser.add_argument('--record-volume-mib', type=int, default=1024)
+    parser.add_argument('--record-metadata', type=Path, help='Experiment JSON: identity/firmware/calibration/dark-field provenance')
     args = parser.parse_args()
+    if args.record_queue_mib <= 0 or args.record_volume_mib <= 0:
+        parser.error('Recording queue/volume MiB must be positive')
+    if args.export_spif is not None:
+        if args.export_to is None:
+            parser.error('--export-spif requires --export-to')
+        from research_export import export_recording
+        try:
+            export_recording(args.export_spif, args.export_to, spectra_csv=args.spectra_csv,
+                frame_min=args.frame_min, frame_max=args.frame_max, allow_damaged=args.allow_damaged)
+        except Exception:
+            raise SystemExit(2)  # report.json/partial output preserves the failure; no GUI error popup.
+        return
     root = tk.Tk()
     viewer = Viewer(root)
+    viewer.recording_options = dict(queue_bytes=args.record_queue_mib << 20,
+                                    volume_bytes=args.record_volume_mib << 20)
+    if args.record_metadata is not None:
+        viewer.recording_metadata = json.loads(args.record_metadata.read_text(encoding='utf-8'))
+        if not isinstance(viewer.recording_metadata, dict):
+            parser.error('--record-metadata must contain a JSON object')
     if args.replay is not None:
         root.after(100, lambda: viewer.start_replay(args.replay))
     root.mainloop()

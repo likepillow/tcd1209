@@ -1,7 +1,8 @@
 `timescale 1ns/1ps
 module tb_ccd_frontend #(
     parameter integer ADC_CAPTURE_DELAY=2,
-    parameter integer BUS_ARRIVAL_PS=9500
+    parameter integer BUS_ARRIVAL_PS=9500,
+    parameter integer FAST_PROFILE=0
 );
     reg clk=0; always #5 clk=~clk;
     reg rst_n=0,run=1;
@@ -13,7 +14,7 @@ module tb_ccd_frontend #(
     wire [11:0] m_data;
     wire [10:0] m_index;
     wire [31:0] m_frame_id;
-    ccd_frontend #(.SETTLE_CYCLES(0),.ADC_CAPTURE_DELAY(ADC_CAPTURE_DELAY)) dut(.*,.period_pixels(13'd2114));
+    ccd_frontend #(.SETTLE_CYCLES(0),.DYNAMIC_PERIOD(FAST_PROFILE),.ADC_CAPTURE_DELAY(ADC_CAPTURE_DELAY),.FAST_PROFILE(FAST_PROFILE)) dut(.*,.period_pixels(FAST_PROFILE ? 64'd2500 : 64'd2114));
 
     wire raw_valid,raw_first,raw_last;
     wire [11:0] raw_data;
@@ -66,21 +67,21 @@ module tb_ccd_frontend #(
             $fatal(1,"line edge count mismatch: RS=%0d CP=%0d phi2=%0d OB=%0d",rs_count,cp_count,phi2_count,ob_count);
         if(cp_fall>0 && $realtime-cp_fall<200) $fatal(1,"SH pre-guard too short");
         if(sh_total==1 || sh_total==2)
-            if($realtime-previous_sh!=422800) $fatal(1,"continuous frame period mismatch");
+            if($realtime-previous_sh!=(FAST_PROFILE ? 200000 : 422800)) $fatal(1,"continuous frame period mismatch");
         previous_sh=$realtime;sh_rise_time=$realtime;
         model_frame=model_frame+1;sh_total=sh_total+1;
         rs_count=0;cp_count=0;phi2_count=0;ob_count=0;check_line=1;
     end
     always @(negedge ccd_sh) if(rst_n && check_line) begin
         if($realtime-sh_rise_time!=1600) $fatal(1,"SH width mismatch");
-        sh_fall_time=$realtime;line_cursor=-3;
+        sh_fall_time=$realtime;line_cursor=FAST_PROFILE ? -8 : -3;
     end
     always @(posedge ccd_rs) if(rst_n) begin
         if(ccd_sh || $realtime-sh_fall_time<200) $fatal(1,"RS violates SH guard");
         rs_rise=$realtime;rs_count=rs_count+1;
     end
     always @(negedge ccd_rs) if(rst_n && rs_rise>0) begin
-        if($realtime-rs_rise!=30) $fatal(1,"RS width mismatch");
+        if($realtime-rs_rise!=(FAST_PROFILE ? 10 : 30)) $fatal(1,"RS width mismatch");
         rs_fall=$realtime;
     end
     always @(posedge ccd_cp) if(rst_n) begin
@@ -88,7 +89,7 @@ module tb_ccd_frontend #(
         cp_rise=$realtime;cp_count=cp_count+1;
     end
     always @(negedge ccd_cp) if(rst_n && cp_rise>0) begin
-        if($realtime-cp_rise!=30) $fatal(1,"CP width mismatch");
+        if($realtime-cp_rise!=(FAST_PROFILE ? 10 : 30)) $fatal(1,"CP width mismatch");
         cp_fall=$realtime;
     end
     always @(posedge ccd_phi2) if(rst_n) begin
@@ -96,12 +97,12 @@ module tb_ccd_frontend #(
         phi2_rise=$realtime;phi2_count=phi2_count+1;
     end
     always @(negedge ccd_phi2) if(rst_n && phi2_rise>0) begin
-        if($realtime-phi2_rise!=120 || $realtime-cp_fall!=20)
+        if($realtime-phi2_rise!=(FAST_PROFILE ? 40 : 120) || $realtime-cp_fall!=(FAST_PROFILE ? 10 : 20))
             $fatal(1,"phi2 pulse/CP edge mismatch");
     end
     always @(negedge ad_shp) if(rst_n) shp_fall=$realtime;
     always @(posedge ad_shp) if(rst_n && shp_fall>0) begin
-        if($realtime-shp_fall!=30) $fatal(1,"SHP width mismatch");
+        if($realtime-shp_fall!=(FAST_PROFILE ? 10 : 30)) $fatal(1,"SHP width mismatch");
         shp_rise=$realtime;
     end
     always @(negedge ad_shd) if(rst_n) begin
@@ -109,20 +110,20 @@ module tb_ccd_frontend #(
         shd_fall=$realtime;
     end
     always @(posedge ad_shd) if(rst_n && shd_fall>0) begin
-        if($realtime-shd_fall!=20 || $realtime-shp_rise<11.25)
+        if($realtime-shd_fall!=(FAST_PROFILE ? 10 : 20) || $realtime-shp_rise<11.25)
             $fatal(1,"SHD pulse/phase mismatch");
         shd_rise=$realtime;
     end
     always @(negedge ad_clpob) if(rst_n) ob_fall=$realtime;
     always @(posedge ad_clpob) if(rst_n && ob_fall>0) begin
-        if($realtime-ob_fall!=3200) $fatal(1,"OB width mismatch");
+        if($realtime-ob_fall!=(FAST_PROFILE ? 1280 : 3200)) $fatal(1,"OB width mismatch");
     end
     always @(negedge ad_dataclk) if(rst_n && last_adc>0) begin
-        if($realtime-last_adc!=100) $fatal(1,"DATACLK high width mismatch");
+        if($realtime-last_adc!=(FAST_PROFILE ? 40 : 100)) $fatal(1,"DATACLK high width mismatch");
         adc_fall=$realtime;
     end
     always @(posedge ad_dataclk) if(rst_n) begin
-        if(last_adc>0 && ($realtime-last_adc!=200 || $realtime-adc_fall!=100))
+        if(last_adc>0 && ($realtime-last_adc!=(FAST_PROFILE ? 80 : 200) || $realtime-adc_fall!=(FAST_PROFILE ? 40 : 100)))
             $fatal(1,"DATACLK period/low width mismatch");
         if($realtime-shd_rise!=10) $fatal(1,"DATACLK not after SHD");
         last_adc=$realtime;
@@ -195,8 +196,8 @@ module tb_ccd_frontend #(
         @(negedge clk);run=0;
         stop_and_drain(3);
         idle_conversions=conversions;idle_pixels=pixel_total;
-        repeat(500) @(negedge clk);
-        if(conversions-idle_conversions!=25 || pixel_total!=idle_pixels || busy)
+        repeat(FAST_PROFILE ? 504 : 500) @(negedge clk);
+        if(conversions-idle_conversions!=(FAST_PROFILE ? 63 : 25) || pixel_total!=idle_pixels || busy)
             $fatal(1,"idle clocks or acquisition gating failed");
         run=1;
         wait(m_valid && m_frame_id==3 && m_index==700);
@@ -213,7 +214,7 @@ module tb_ccd_frontend #(
         stop_and_drain(5);
         if(crop_total!=5120 || launch_before_config<20000) $fatal(1,"test coverage incomplete");
         $fclose(trace);
-        $display("PASS: frontend pin-driven model, %0d complete frames / %0d cropped pixels, 5 MHz, 422.8 us continuous period",complete_total,crop_total);
+        $display("PASS: frontend pin-driven model, %0d complete frames / %0d cropped pixels, fast=%0d, frame_ns=%0d",complete_total,crop_total,FAST_PROFILE,FAST_PROFILE ? 200000 : 422800);
         $display("PASS: startup gating, CCD/AFE edge widths, shielded-only clamp, graceful stop/restart, partial-frame reset");
         $finish;
     end

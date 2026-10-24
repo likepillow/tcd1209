@@ -22,12 +22,14 @@ class Transfer:
 
     @property
     def idle_timeout(self):
-        # Only the observed 200 ms IN timeout/cancellation combination is
-        # accepted. ERROR_IO_PENDING alone is not proof of an idle timeout.
+        # The configured 200 ms IN wait has also returned at 199 ms on hardware.
+        # Allow that single millisecond of integer timer rounding, while requiring
+        # the exact observed empty timeout/cancellation combination.
+        # ERROR_IO_PENDING alone is not proof of an idle timeout.
         return (not self.success and self.count == 0 and not self.data and
                 (self.error == 121 or
                  (self.error == 997 and self.nt_status == 0xC0000120 and
-                  self.usbd_status == 0xC0010000 and self.elapsed_ms >= 200)))
+                  self.usbd_status == 0xC0010000 and self.elapsed_ms >= 199)))
 
 
 class CypressUSB:

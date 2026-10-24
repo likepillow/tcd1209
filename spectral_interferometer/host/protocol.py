@@ -33,11 +33,12 @@ class Kind(IntEnum):
     EXPORT = 0x23
     ACQUISITION = 0x24
     RUN_CONTROL = 0x25
+    EXPOSURE = 0x27
 
 
 LENGTHS = {Kind.RAW: 2048, Kind.SPECTRUM: 10240, Kind.PHASE: 8192,
            Kind.RESULT: 28, Kind.SOURCE: 4096, Kind.K_WEIGHTS: 2052, Kind.ACK: 8,
-           Kind.EXPORT: 4, Kind.ACQUISITION: 8, Kind.RUN_CONTROL: 4}
+           Kind.EXPORT: 4, Kind.ACQUISITION: 8, Kind.RUN_CONTROL: 4, Kind.EXPOSURE: 16}
 MAX_PACKET = HEADER.size + max(LENGTHS.values()) + CRC.size
 SPECTRUM_DTYPE = np.dtype([('s0', '<u2'), ('s1', '<u4'), ('s2', '<i4')])
 RESULT_TAIL = struct.Struct('<hHHHII')
@@ -64,7 +65,8 @@ def acquisition_command(settings, sequence):
     from acquisition_settings import AcquisitionSettings
     if not isinstance(settings, AcquisitionSettings):
         raise TypeError('Expected AcquisitionSettings')
-    return Packet(Kind.ACQUISITION, sequence, NO_FRAME, settings.encode())
+    return Packet(Kind.EXPOSURE if settings.pixel_ticks == 8 else Kind.ACQUISITION,
+                  sequence, NO_FRAME, settings.encode())
 
 
 def run_command(running, sequence):
@@ -142,7 +144,7 @@ def validate_payload(kind, payload):
         _, status, reserved = struct.unpack('<IHH', payload)
         if reserved or status > 4:
             raise ValueError('ACK has unknown status/reserved field')
-    elif kind == Kind.ACQUISITION:
+    elif kind in (Kind.ACQUISITION, Kind.EXPOSURE):
         from acquisition_settings import AcquisitionSettings
         AcquisitionSettings.decode(payload)
     elif kind == Kind.RUN_CONTROL:
@@ -200,6 +202,8 @@ class Decoder:
         self.bad_crc = 0
         self.bad_payloads = 0
         self.packets = 0
+        self.consumed_bytes = 0
+        self.packet_offset = 0
 
     def feed(self, data):
         incoming = memoryview(data).cast('B')
@@ -215,6 +219,7 @@ class Decoder:
     def _discard(self, count):
         del self.buffer[:count]
         self.discarded_bytes += count
+        self.consumed_bytes += count
 
     def _drain(self):
         while True:
@@ -247,6 +252,8 @@ class Decoder:
                 self.bad_payloads += 1
                 self._discard(total)
                 continue
+            self.packet_offset = self.consumed_bytes
+            self.consumed_bytes += total
             del self.buffer[:total]
             self.packets += 1
             yield Packet(Kind(kind), seq, frame, payload, time, sv, kv, flags)

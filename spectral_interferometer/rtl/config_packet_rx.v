@@ -40,7 +40,8 @@ module config_packet_rx(
                 (header[47:40]==8'h21 && header[95:64]==2052) ||
                 (header[47:40]==8'h23 && header[95:64]==4) ||
                 (header[47:40]==8'h24 && header[95:64]==8) ||
-                (header[47:40]==8'h25 && header[95:64]==4)) &&
+                (header[47:40]==8'h25 && header[95:64]==4) ||
+                (header[47:40]==8'h27 && header[95:64]==16)) &&
                 header[39:32]==1 && (header[63:48]&16'hfff8)==0 &&
                 (header[50] || header[223:160]==0);
     always @(posedge clk) begin
@@ -87,6 +88,14 @@ module config_packet_rx(
                     end
                     if(header[47:40]==8'h25 && index==3 && incoming_word>1)
                         semantic_bad<=1;
+                    if(header[47:40]==8'h27 && index[1:0]==3) begin
+                        if(index==3 && incoming_word>1024) semantic_bad<=1;
+                        // Save the low period word until the complete uint64 is checked.
+                        if(index==7) weight_sum<={9'b0,incoming_word};
+                        if(index==11 && (incoming_word[31:29]!=0 ||
+                           (incoming_word==0 && weight_sum<2500))) semantic_bad<=1;
+                        if(index==15 && incoming_word==0) semantic_bad<=1;
+                    end
                     if(index==length-1) begin count<=0;received_crc<=0;state<=CRC;end
                     else index<=index+1'b1;
                 end

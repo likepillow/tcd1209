@@ -1,7 +1,7 @@
 if {[llength $argv] < 1 || [llength $argv] > 2} {error "Pass project root and optional variant"}
 set root [lindex $argv 0]
 set variant [expr {[llength $argv] == 2 ? [lindex $argv 1] : "runtime"}]
-if {$variant ni {runtime control clipping capture40}} {error "Unsupported variant"}
+if {$variant ni {runtime control clipping capture40 exposure}} {error "Unsupported variant"}
 set implementation [file join $root build ${variant}_implementation]
 open_checkpoint [file join $implementation routed.dcp]
 read_xdc [file join $root constraints board_cdc.xdc]
